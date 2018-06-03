@@ -1,0 +1,4 @@
+# Appending a slash indicates the pattern is a directory. The entire contents of any directory in the repository matching that name – including all of its files and subdirectories – will be ignored #
+temp*/
+obj/
+bin/
