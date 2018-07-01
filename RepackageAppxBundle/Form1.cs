@@ -51,6 +51,7 @@ namespace RepackageAppxBundle
             bool valid = !string.IsNullOrEmpty(appxLocationText.Text) && Directory.Exists(appxLocationText.Text);
             okButton.Enabled = valid;
         }
+        private static string WinKitPath => System.Configuration.ConfigurationManager.AppSettings["WinKitx86"];
         private void ReplacePackage()
         {
             log.InfoFormat("Running as {0}", Name);
@@ -59,7 +60,7 @@ namespace RepackageAppxBundle
             string appxBundleFile = GetFile(appxLocationText.Text, "*.appxbundle");
             //unbundle
             string args = "unbundle /o /d " + APPXBUNDLE_EXTRACTED_FOLDER + " /p " + appxBundleFile;
-            string exe = ".\\appx\\makeappx.exe";
+            string exe = GetExecutableOfWinKit("makeappx.exe");
             RunCommand(exe, args, (result) =>
             {
                 if (result)
@@ -67,7 +68,7 @@ namespace RepackageAppxBundle
                     //unpack
                     string appxFile = GetFile(APPXBUNDLE_EXTRACTED_FOLDER, "*.appx");
                     args = "unpack /o /d " + APPX_EXTRACTED_FOLDER + " /p " + appxFile + " /l";
-                    exe = ".\\appx\\makeappx.exe";
+                    exe = GetExecutableOfWinKit("makeappx.exe");
                     RunCommand(exe, args, (result2) =>
                      {
                          if (result2)
@@ -79,44 +80,45 @@ namespace RepackageAppxBundle
                              //Do Pack again
                              string newAppx = Path.Combine(APPXBUNDLE_EXTRACTED_FOLDER, Path.GetFileName(appxFile));
                              args = "pack /l /o /d " + APPX_EXTRACTED_FOLDER + " /p " + newAppx;
-                             exe = ".\\appx\\makeappx.exe";
+                             exe = GetExecutableOfWinKit("makeappx.exe");
                              RunCommand(exe, args, (result4) =>
                              {
                                  if (result4)
                                  {
                                      //Make Cert
-                                     exe = ".\\appx\\MakeCert.exe";
+                                     exe = GetExecutableOfWinKit("MakeCert.exe");
                                      string publisher, codingSign;
                                      string cerFile = GetFile(appxLocationText.Text, "*.cer");
                                      GetCerticationInfo(cerFile, out publisher, out codingSign);
                                      string date = String.Format("{0:MM/dd/yyyy}", DateTime.Now.AddYears(5));
                                      args = "/n " + publisher + " /r /h 0 /eku " + codingSign + " /e " + date + " /sv " + Path.Combine(OUT_FOLDER, "MyKey.pvk") + " " + Path.Combine(OUT_FOLDER, "MyKey.cer");
+                                     args = "/n " + publisher + " /r /h 0 /eku " + codingSign + " /e " + date + " " + Path.Combine(OUT_FOLDER, "MyKey.pvk") + " " + Path.Combine(OUT_FOLDER, "MyKey.cer");
                                      RunCommand(exe, args, (result5) =>
                                      {
                                          if (result5)
                                          {
-                                             exe = ".\\appx\\Pvk2Pfx.exe";
+                                             exe = GetExecutableOfWinKit("Pvk2Pfx.exe");
                                              args = "/pvk " + Path.Combine(OUT_FOLDER, "MyKey.pvk") + " /pi testpass /spc " + Path.Combine(OUT_FOLDER, "MyKey.cer") + " /pfx " + Path.Combine(OUT_FOLDER, "MyKey.pfx") + " /po testpass";
                                              RunCommand(exe, args, (result6) =>
                                              {
                                                  if (result6)
                                                  {
                                                      //Sign the package
-                                                     exe = ".\\appx\\SignTool.exe";
+                                                     exe = GetExecutableOfWinKit("SignTool.exe");
                                                      args = "sign /a /v /fd SHA256 /f " + Path.Combine(OUT_FOLDER, "MyKey.pfx") + " /p testpass " + newAppx;
                                                      RunCommand(exe, args, (result7) =>
                                                      {
                                                          if (result7)
                                                          {
                                                              //Make bundle
-                                                             exe = ".\\appx\\makeappx.exe";
+                                                             exe = GetExecutableOfWinKit("makeappx.exe");
                                                              args = "bundle /v /o /d " + APPXBUNDLE_EXTRACTED_FOLDER + " /p " + appxBundleFile;
                                                              RunCommand(exe, args, (result8) =>
                                                               {
                                                                   if (result8)
                                                                   {
                                                                       //sign bundle
-                                                                      exe = ".\\appx\\SignTool.exe";
+                                                                      exe = GetExecutableOfWinKit("SignTool.exe");
                                                                       args = "sign /a /v /fd SHA256 /f " + Path.Combine(OUT_FOLDER, "MyKey.pfx") + " /p testpass " + appxBundleFile;
                                                                       RunCommand(exe, args, (result9) =>
                                                                       {
@@ -144,7 +146,12 @@ namespace RepackageAppxBundle
                 }
             });
         }
-
+        private static string GetExecutableOfWinKit(string name)
+        {
+            //string exe = ".\\appx\\" + name;
+            string exe = Path.Combine(WinKitPath, name);
+            return exe;
+        }
         private string FindPublisher()
         {
             string ret = "";
